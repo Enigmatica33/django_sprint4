@@ -1,7 +1,5 @@
 """Формы."""
 from django import forms
-from django.core.mail import send_mail
-from django.forms.widgets import DateTimeInput
 
 from .models import Post, Comment, User
 

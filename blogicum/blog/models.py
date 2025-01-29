@@ -134,19 +134,21 @@ class Comment(PublishedModel):
         Post,
         on_delete=models.CASCADE,
         verbose_name='Пост',
-        related_name='comments',
     )
     author = models.ForeignKey(
         User,
-        on_delete=models.CASCADE)
+        on_delete=models.CASCADE,
+        verbose_name='Автор',
+    )
 
     class Meta:
         """Внутренний класс Meta модели."""
 
         verbose_name = 'комментарий'
         verbose_name_plural = 'Комментарии'
+        default_related_name = 'comments'
         ordering = ('created_at',)
 
     def __str__(self):
         """Магический метод."""
-        return self.text
+        return str(self.text)[:10]

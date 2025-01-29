@@ -8,21 +8,11 @@ class About(TemplateView):
 
     template_name = 'pages/about.html'
 
-    def get_context_data(self, **kwargs):
-        """Получение словаря контекста из родительского метода."""
-        context = super().get_context_data(**kwargs)
-        return context
-
 
 class Rules(TemplateView):
     """Отображение статичной страницы Правила."""
 
     template_name = 'pages/rules.html'
-
-    def get_context_data(self, **kwargs):
-        """Получение словаря контекста из родительского метода."""
-        context = super().get_context_data(**kwargs)
-        return context
 
 
 def page_not_found(request, exception):

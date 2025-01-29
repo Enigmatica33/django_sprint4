@@ -1,51 +1,66 @@
 """Представления."""
-from django.db.models import Q
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.generic.edit import CreateView
 
 from .forms import PostForm, CommentForm, UserForm
 from .models import Post, Category, User, Comment
 
 
+def posts_queryset(author=None, comments=None, model_manager=Post.objects):
+    """Получаем список постов."""
+    queryset = model_manager.all()
+    if comments is True:
+        queryset = queryset.select_related('author')
+        return queryset
+    if author is None:
+        queryset = queryset.filter(
+            is_published=True,
+            category__is_published=True,
+            pub_date__lte=timezone.now()).select_related(
+                'author',
+                'location',
+                'category')
+    else:
+        queryset = queryset.filter(author_id=author).select_related(
+            'author',
+            'location',
+            'category')
+    return queryset
+
+
 def index(request):
     """Главная страница."""
-    post_list = posts_queryset(request).filter(
-        is_published=True,
-        pub_date__lte=timezone.now(),
-        category__is_published=True
-    )
+    post_list = posts_queryset()
     context = page_paginator(post_list, request)
     return render(request, 'blog/index.html', context)
 
 
-def posts_queryset(request, model_manager=Post.objects):
-    """Получаем список постов."""
-    return model_manager.filter(
-        Q(is_published=True) | Q(author_id=request.user.id),
-        Q(category__is_published=True) | Q(author_id=request.user.id),
-        Q(pub_date__lte=timezone.now()) | Q(author_id=request.user.id)
-    ).select_related('author', 'location', 'category')
-
-
 def page_paginator(queryset, request):
     """Пагинатор."""
-    paginator = Paginator(queryset, 10)
+    paginator = Paginator(queryset, settings.ITEMS_PER_PAGE)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    return {
-        'paginator': paginator,
-        'page_number': page_number,
-        'page_obj': page_obj,
-    }
+    return {'page_obj': page_obj}
 
 
 def post_detail(request, post_id):
     """Страница отдельного поста."""
-    post = get_object_or_404(posts_queryset(request), id=post_id)
+    instance = get_object_or_404(Post, id=post_id)
+    if instance.author == request.user:
+        post = get_object_or_404(
+            posts_queryset(author=request.user),
+            id=post_id)
+    else:
+        post = get_object_or_404(posts_queryset(), id=post_id)
     form = CommentForm(request.POST or None)
-    comments = Comment.objects.filter(post__id=post_id)
+    # comments = post.comments.select_related('author') # работает
+    comments = posts_queryset(model_manager=post.comments, comments=True)
     return render(
         request, 'blog/detail.html',
         {'post': post, 'comments': comments, 'form': form}
@@ -59,10 +74,7 @@ def category_posts(request, category_slug):
         slug=category_slug,
         is_published=True
     )
-    post_list = posts_queryset(request, category.posts).filter(
-        is_published=True,
-        pub_date__lte=timezone.now()
-    )
+    post_list = posts_queryset(model_manager=category.posts)
     context = {'category': category}
     context.update(page_paginator(post_list, request))
     return render(
@@ -74,8 +86,11 @@ def category_posts(request, category_slug):
 def profile(request, username):
     """Страница пользователя."""
     profile = get_object_or_404(User, username=username)
-    post = Post.objects.filter(author=profile)
     context = {'profile': profile}
+    if request.user.username == username:
+        post = posts_queryset(author=request.user.id)
+    else:
+        post = posts_queryset()
     context.update(page_paginator(post, request))
     return render(
         request,
@@ -119,11 +134,10 @@ def create_post(request):
     return render(request, 'blog/create.html', context)
 
 
+# @login_required
 def edit_post(request, post_id):
     """Редактирование поста пользователя."""
     instance = get_object_or_404(Post, id=post_id)
-    if request.user is None:
-        return redirect('login')
     if (request.user != instance.author):
         return redirect('blog:post_detail', post_id=post_id)
     form = PostForm(
@@ -173,8 +187,6 @@ def add_comment(request, post_id):
 def edit_comment(request, post_id, comment_id):
     """Редактирование комментария."""
     instance = get_object_or_404(Comment, id=comment_id)
-    if request.user is None:
-        return redirect('login')
     if (request.user != instance.author):
         return redirect('blog:post_detail', post_id=post_id)
     form = CommentForm(request.POST or None, instance=instance)
@@ -196,3 +208,9 @@ def delete_comment(request, post_id, comment_id):
         instance.delete()
         return redirect('blog:post_detail', post_id=post_id)
     return render(request, 'blog/comment.html', context)
+
+
+# class RegistrationCreateView(CreateView):
+#     template_name = 'registration/registration_form.html',
+#     form_class = UserCreationForm,
+#     success_url = reverse_lazy('blog:index')

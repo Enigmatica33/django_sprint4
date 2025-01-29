@@ -1,37 +1,12 @@
 """Представления."""
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
-from django.urls import reverse_lazy
-from django.utils import timezone
-from django.views.generic.edit import CreateView
 
 from .forms import PostForm, CommentForm, UserForm
 from .models import Post, Category, User, Comment
-
-
-def posts_queryset(author=None, comments=None, model_manager=Post.objects):
-    """Получаем список постов."""
-    queryset = model_manager.all()
-    if comments is True:
-        queryset = queryset.select_related('author')
-        return queryset
-    if author is None:
-        queryset = queryset.filter(
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=timezone.now()).select_related(
-                'author',
-                'location',
-                'category')
-    else:
-        queryset = queryset.filter(author_id=author).select_related(
-            'author',
-            'location',
-            'category')
-    return queryset
+from .posts_queryset import posts_queryset
 
 
 def index(request):
@@ -208,9 +183,3 @@ def delete_comment(request, post_id, comment_id):
         instance.delete()
         return redirect('blog:post_detail', post_id=post_id)
     return render(request, 'blog/comment.html', context)
-
-
-# class RegistrationCreateView(CreateView):
-#     template_name = 'registration/registration_form.html',
-#     form_class = UserCreationForm,
-#     success_url = reverse_lazy('blog:index')

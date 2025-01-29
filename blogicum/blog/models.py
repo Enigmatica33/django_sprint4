@@ -119,10 +119,10 @@ class Post(PublishedModel):
         """Магический метод."""
         return self.title[:MAX_TITLE_LENGTH]
 
-    @property
-    def comment_count(self):
-        """Подсчет количества комменатриев отдельного поста."""
-        return self.comments.count()
+    # @property
+    # def comment_count(self):
+    #     """Подсчет количества комменатриев отдельного поста."""
+    #     return self.comments.count()
 
 
 class Comment(PublishedModel):
@@ -151,4 +151,4 @@ class Comment(PublishedModel):
 
     def __str__(self):
         """Магический метод."""
-        return str(self.text)[:MAX_TITLE_LENGTH]
+        return self.text[:MAX_TITLE_LENGTH]

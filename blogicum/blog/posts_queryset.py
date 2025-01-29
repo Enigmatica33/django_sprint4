@@ -18,10 +18,14 @@ def posts_queryset(author=None, comments=None, model_manager=Post.objects):
             pub_date__lte=timezone.now()).select_related(
                 'author',
                 'location',
-                'category').annotate(comment_count=Count('comments')).order_by('-pub_date')
+                'category').annotate(
+                    comment_count=Count('comments')
+        ).order_by('-pub_date')
     else:
         queryset = queryset.filter(author_id=author).select_related(
             'author',
             'location',
-            'category').annotate(comment_count=Count('comments')).order_by('-pub_date')
+            'category').annotate(
+                comment_count=Count('comments')
+        ).order_by('-pub_date')
     return queryset

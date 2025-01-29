@@ -151,4 +151,4 @@ class Comment(PublishedModel):
 
     def __str__(self):
         """Магический метод."""
-        return str(self.text)[:10]
+        return str(self.text)[:MAX_TITLE_LENGTH]

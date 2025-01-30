@@ -119,11 +119,6 @@ class Post(PublishedModel):
         """Магический метод."""
         return self.title[:MAX_TITLE_LENGTH]
 
-    # @property
-    # def comment_count(self):
-    #     """Подсчет количества комменатриев отдельного поста."""
-    #     return self.comments.count()
-
 
 class Comment(PublishedModel):
     """Модель Comment."""

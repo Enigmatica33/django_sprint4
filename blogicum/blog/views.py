@@ -1,41 +1,29 @@
 """Представления."""
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.core.paginator import Paginator
 from django.shortcuts import render, redirect, get_object_or_404
 
 from .forms import PostForm, CommentForm, UserForm
 from .models import Post, Category, User, Comment
+from .page_paginator import page_paginator
 from .posts_queryset import posts_queryset
 
 
 def index(request):
     """Главная страница."""
-    post_list = posts_queryset()
+    post_list = posts_queryset(hide=True, annotate=True)
     context = page_paginator(post_list, request)
     return render(request, 'blog/index.html', context)
 
 
-def page_paginator(queryset, request):
-    """Пагинатор."""
-    paginator = Paginator(queryset, settings.ITEMS_PER_PAGE)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    return {'page_obj': page_obj}
-
-
 def post_detail(request, post_id):
     """Страница отдельного поста."""
-    instance = get_object_or_404(Post, id=post_id)
-    if instance.author == request.user:
+    post = get_object_or_404(posts_queryset(), id=post_id)
+    if post.author != request.user:
         post = get_object_or_404(
-            posts_queryset(author=request.user),
+            posts_queryset(hide=True),
             id=post_id)
-    else:
-        post = get_object_or_404(posts_queryset(), id=post_id)
-    form = CommentForm(request.POST or None)
-    # comments = post.comments.select_related('author') # работает
-    comments = posts_queryset(model_manager=post.comments, comments=True)
+    form = CommentForm()
+    comments = post.comments.select_related('author')
     return render(
         request, 'blog/detail.html',
         {'post': post, 'comments': comments, 'form': form}
@@ -49,7 +37,10 @@ def category_posts(request, category_slug):
         slug=category_slug,
         is_published=True
     )
-    post_list = posts_queryset(model_manager=category.posts)
+    post_list = posts_queryset(
+        model_manager=category.posts,
+        hide=True,
+        annotate=True)
     context = {'category': category}
     context.update(page_paginator(post_list, request))
     return render(
@@ -63,9 +54,13 @@ def profile(request, username):
     profile = get_object_or_404(User, username=username)
     context = {'profile': profile}
     if request.user.username == username:
-        post = posts_queryset(author=request.user.id)
+        post = posts_queryset(model_manager=profile.posts, annotate=True)
     else:
-        post = posts_queryset()
+        post = posts_queryset(
+            model_manager=profile.posts,
+            hide=True,
+            annotate=True
+        )
     context.update(page_paginator(post, request))
     return render(
         request,
@@ -74,9 +69,10 @@ def profile(request, username):
     )
 
 
+@login_required
 def edit_profile(request):
     """Редактирование профиля пользователя."""
-    instance = get_object_or_404(User, username=request.user.username)
+    instance = get_object_or_404(User, username=request.user)
     form = UserForm(
         request.POST or None,
         files=request.FILES or None,
@@ -109,7 +105,7 @@ def create_post(request):
     return render(request, 'blog/create.html', context)
 
 
-# @login_required
+@login_required
 def edit_post(request, post_id):
     """Редактирование поста пользователя."""
     instance = get_object_or_404(Post, id=post_id)
@@ -161,7 +157,7 @@ def add_comment(request, post_id):
 @login_required
 def edit_comment(request, post_id, comment_id):
     """Редактирование комментария."""
-    instance = get_object_or_404(Comment, id=comment_id)
+    instance = get_object_or_404(Comment, id=comment_id, post_id=post_id)
     if (request.user != instance.author):
         return redirect('blog:post_detail', post_id=post_id)
     form = CommentForm(request.POST or None, instance=instance)
@@ -175,7 +171,7 @@ def edit_comment(request, post_id, comment_id):
 @login_required
 def delete_comment(request, post_id, comment_id):
     """Удаление комментария."""
-    instance = get_object_or_404(Comment, id=comment_id)
+    instance = get_object_or_404(Comment, id=comment_id, post_id=post_id)
     if (request.user != instance.author and not request.user.is_superuser):
         return redirect('blog:post_detail', post_id=post_id)
     context = {'instance': instance}
